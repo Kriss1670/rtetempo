@@ -14,7 +14,8 @@
             "user": {
                 "data": {
                     "client_id": "Client ID",
-                    "client_secret": "Client Secret"
+                    "client_secret": "Client Secret",
+                    "forecast_enabled": "Activer les prévisions Open DPE"
                 },
                 "description": "Veuillez remplir vos [identifiants d'application](https://data.rte-france.com/group/guest/apps) RTE API."
             }
@@ -24,7 +25,8 @@
         "step": {
             "init": {
                 "data": {
-                    "adjusted_days": "Ajuster les évènements du calendrier à l'heure réelle du changement (6h du matin)"
+                    "adjusted_days": "Ajuster les évènements du calendrier à l'heure réelle du changement (6h du matin)",
+                    "forecast_enabled": "Activer les prévisions Open DPE"
                 },
                 "title": "RTE Tempo - Options"
             }

@@ -1,0 +1,213 @@
+# Dashboard exemple pour RTE Tempo
+# Nécessite: mushroom-cards (HACS) pour le style avancé
+# Version basique disponible sans mushroom (voir dashboard_basic.yaml)
+
+title: RTE Tempo
+views:
+  - title: Tempo
+    path: tempo
+    icon: mdi:lightning-bolt
+    badges: []
+    cards:
+      # ============================================
+      # Couleur du jour et demain
+      # ============================================
+      - type: vertical-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: "Aujourd'hui"
+            secondary: "{{ states('sensor.rte_tempo_couleur_actuelle') }}"
+            icon: mdi:calendar-today
+            icon_color: white
+            card_mod:
+              style: |
+                ha-card {
+                  {% set couleur = states('sensor.rte_tempo_couleur_actuelle') %}
+                  {% if couleur == 'Rouge' %}
+                  background: linear-gradient(135deg, #e53935 0%, #b71c1c 100%);
+                  {% elif couleur == 'Blanc' %}
+                  background: linear-gradient(135deg, #eceff1 0%, #cfd8dc 100%);
+                  {% else %}
+                  background: linear-gradient(135deg, #1e88e5 0%, #0d47a1 100%);
+                  {% endif %}
+                  --primary-text-color: {% if couleur == 'Blanc' %}#333{% else %}white{% endif %};
+                  --secondary-text-color: {% if couleur == 'Blanc' %}#555{% else %}rgba(255,255,255,0.8){% endif %};
+                }
+
+          - type: custom:mushroom-template-card
+            primary: "Demain"
+            secondary: "{{ states('sensor.rte_tempo_prochaine_couleur') }}"
+            icon: mdi:calendar-arrow-right
+            icon_color: white
+            card_mod:
+              style: |
+                ha-card {
+                  {% set couleur = states('sensor.rte_tempo_prochaine_couleur') %}
+                  {% if couleur == 'Rouge' %}
+                  background: linear-gradient(135deg, #e53935 0%, #b71c1c 100%);
+                  {% elif couleur == 'Blanc' %}
+                  background: linear-gradient(135deg, #eceff1 0%, #cfd8dc 100%);
+                  {% else %}
+                  background: linear-gradient(135deg, #1e88e5 0%, #0d47a1 100%);
+                  {% endif %}
+                  --primary-text-color: {% if couleur == 'Blanc' %}#333{% else %}white{% endif %};
+                  --secondary-text-color: {% if couleur == 'Blanc' %}#555{% else %}rgba(255,255,255,0.8){% endif %};
+                }
+
+      # ============================================
+      # Heures Pleines / Creuses
+      # ============================================
+      - type: custom:mushroom-template-card
+        primary: "{{ 'Heures Creuses' if is_state('binary_sensor.rte_tempo_heures_creuses', 'on') else 'Heures Pleines' }}"
+        secondary: |
+          {% if is_state('binary_sensor.rte_tempo_heures_creuses', 'on') %}
+          22h - 6h (tarif réduit)
+          {% else %}
+          6h - 22h (tarif plein)
+          {% endif %}
+        icon: "{{ 'mdi:moon-waning-crescent' if is_state('binary_sensor.rte_tempo_heures_creuses', 'on') else 'mdi:white-balance-sunny' }}"
+        icon_color: "{{ 'blue' if is_state('binary_sensor.rte_tempo_heures_creuses', 'on') else 'orange' }}"
+
+      # ============================================
+      # Compteurs de jours restants dans le cycle
+      # ============================================
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.rte_tempo_cycle_jours_restants_rouge') }}"
+            secondary: "Jours rouges"
+            icon: mdi:circle
+            icon_color: red
+            layout: vertical
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.rte_tempo_cycle_jours_restants_blanc') }}"
+            secondary: "Jours blancs"
+            icon: mdi:circle-outline
+            icon_color: grey
+            layout: vertical
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.rte_tempo_cycle_jours_restants_bleu') }}"
+            secondary: "Jours bleus"
+            icon: mdi:circle
+            icon_color: blue
+            layout: vertical
+
+      # ============================================
+      # Prévisions J+2 à J+7 (nécessite Open DPE activé)
+      # ============================================
+      - type: markdown
+        title: "📅 Prévisions (Open DPE)"
+        content: |
+          | Jour | Couleur | Probabilité |
+          |------|---------|-------------|
+          {% set day_names = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'] %}
+          {% for i in range(2, 8) %}
+          {% set sensor = 'sensor.rte_tempo_forecast_opendpe_j' ~ i %}
+          {% set couleur = states(sensor) %}
+          {% set proba = state_attr(sensor, 'probability') %}
+          {% set indicator = state_attr(sensor, 'indicator') %}
+          {% set date = now() + timedelta(days=i) %}
+          {% set jour = day_names[date.weekday()] %}
+          {% set emoji = '🔴' if couleur == 'Rouge' else ('⚪' if couleur == 'Blanc' else '🔵') %}
+          {% set info = '🗓️ Dimanche' if indicator == 'D' else ('🎉 Férié' if indicator == 'F' else ((proba * 100) | round ~ '%' if proba else '-')) %}
+          | {{ jour }} | {{ emoji }} {{ couleur }} | {{ info }} |
+          {% endfor %}
+
+  # ============================================
+  # ONGLET 2 - PRÉCISION DES PRÉVISIONS
+  # ============================================
+  - title: Précision
+    path: precision
+    icon: mdi:chart-line
+    badges: []
+    cards:
+      - type: custom:mushroom-title-card
+        title: "📊 Précision des Prévisions"
+        subtitle: "Évolution des prévisions J-7 à J-2 vs réalité"
+
+      # Cartes accuracy par horizon
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: "{{ state_attr('sensor.rte_tempo_forecast_accuracy', 'accuracy_j7') | float(0) | round(0) }}%"
+            secondary: "J-7"
+            icon: mdi:calendar-week
+            icon_color: |
+              {% set acc = state_attr('sensor.rte_tempo_forecast_accuracy', 'accuracy_j7') | float(0) %}
+              {{ 'green' if acc >= 80 else ('orange' if acc >= 60 else 'red') }}
+            layout: vertical
+          - type: custom:mushroom-template-card
+            primary: "{{ state_attr('sensor.rte_tempo_forecast_accuracy', 'accuracy_j5') | float(0) | round(0) }}%"
+            secondary: "J-5"
+            icon: mdi:calendar
+            icon_color: |
+              {% set acc = state_attr('sensor.rte_tempo_forecast_accuracy', 'accuracy_j5') | float(0) %}
+              {{ 'green' if acc >= 80 else ('orange' if acc >= 60 else 'red') }}
+            layout: vertical
+          - type: custom:mushroom-template-card
+            primary: "{{ state_attr('sensor.rte_tempo_forecast_accuracy', 'accuracy_j3') | float(0) | round(0) }}%"
+            secondary: "J-3"
+            icon: mdi:calendar-today
+            icon_color: |
+              {% set acc = state_attr('sensor.rte_tempo_forecast_accuracy', 'accuracy_j3') | float(0) %}
+              {{ 'green' if acc >= 80 else ('orange' if acc >= 60 else 'red') }}
+            layout: vertical
+          - type: custom:mushroom-template-card
+            primary: "{{ state_attr('sensor.rte_tempo_forecast_accuracy', 'accuracy_j2') | float(0) | round(0) }}%"
+            secondary: "J-2"
+            icon: mdi:calendar-check
+            icon_color: |
+              {% set acc = state_attr('sensor.rte_tempo_forecast_accuracy', 'accuracy_j2') | float(0) %}
+              {{ 'green' if acc >= 80 else ('orange' if acc >= 60 else 'red') }}
+            layout: vertical
+
+      # Tableau PASSÉ - Historique avec comparaison
+      - type: markdown
+        title: "📋 Historique (Passé)"
+        content: |
+          {% set matrix = state_attr('sensor.rte_tempo_forecast_accuracy', 'past_matrix') %}
+          {% macro color_emoji(c) %}{% if c == 'rouge' %}🔴{% elif c == 'blanc' %}⚪{% elif c == 'bleu' %}🔵{% else %}--{% endif %}{% endmacro %}
+          {% macro cell(jdata) %}{% if jdata and jdata.color %}{{ color_emoji(jdata.color) }}{% if jdata.result == '✓' %}✓{% elif jdata.result == '✗' %}✗{% endif %}{% else %}--{% endif %}{% endmacro %}
+          | Date  |  J-7  |  J-6  |  J-5  |  J-4  |  J-3  |  J-2  | Réel  |
+          |:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|
+          {% if matrix %}{% for row in matrix[:15] %}| {{ row.date[5:] }} | {{ cell(row.j7) }} | {{ cell(row.j6) }} | {{ cell(row.j5) }} | {{ cell(row.j4) }} | {{ cell(row.j3) }} | {{ cell(row.j2) }} | {{ color_emoji(row.actual) }} |
+          {% endfor %}{% endif %}
+
+      # Tableau FUTUR - Prévisions actuelles
+      - type: markdown
+        title: "🔮 Prévisions Futures"
+        content: |
+          {% set matrix = state_attr('sensor.rte_tempo_forecast_accuracy', 'future_matrix') %}
+          {% macro color_emoji(c) %}{% if c == 'rouge' %}🔴{% elif c == 'blanc' %}⚪{% elif c == 'bleu' %}🔵{% else %}--{% endif %}{% endmacro %}
+          {% macro cell(jdata) %}{% if jdata and jdata.color %}{{ color_emoji(jdata.color) }}{% else %}--{% endif %}{% endmacro %}
+          | Date  |  J-7  |  J-6  |  J-5  |  J-4  |  J-3  |  J-2  |
+          |:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|
+          {% if matrix %}{% for row in matrix %}| {{ row.date[5:] }} | {{ cell(row.j7) }} | {{ cell(row.j6) }} | {{ cell(row.j5) }} | {{ cell(row.j4) }} | {{ cell(row.j3) }} | {{ cell(row.j2) }} |
+          {% endfor %}{% endif %}
+
+      # Légende
+      - type: markdown
+        content: |
+          **Légende:** 🔴 Rouge · ⚪ Blanc · 🔵 Bleu · -- N/A | ✓ OK · ✗ Erreur
+
+      # Statistiques globales
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: "{{ state_attr('sensor.rte_tempo_forecast_accuracy', 'total_days') | default(0) }}"
+            secondary: "Jours analysés"
+            icon: mdi:calendar-range
+            icon_color: blue
+            layout: vertical
+          - type: custom:mushroom-template-card
+            primary: "{{ state_attr('sensor.rte_tempo_forecast_accuracy', 'correct_predictions') | default(0) }}"
+            secondary: "Prédictions ✓"
+            icon: mdi:check-circle
+            icon_color: green
+            layout: vertical
+          - type: custom:mushroom-template-card
+            primary: "{{ state_attr('sensor.rte_tempo_forecast_accuracy', 'incorrect_predictions') | default(0) }}"
+            secondary: "Prédictions ✗"
+            icon: mdi:close-circle
+            icon_color: red
+            layout: vertical

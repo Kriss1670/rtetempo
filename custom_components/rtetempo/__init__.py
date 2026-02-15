@@ -8,7 +8,7 @@ from homeassistant.const import EVENT_HOMEASSISTANT_STOP, Platform
 from homeassistant.core import HomeAssistant
 
 from .api_worker import APIWorker
-from .const import CONFIG_CLIEND_SECRET, CONFIG_CLIENT_ID, DOMAIN, OPTION_ADJUSTED_DAYS
+from .const import CONFIG_CLIEND_SECRET, CONFIG_CLIENT_ID, DOMAIN, OPTION_ADJUSTED_DAYS, OPTION_FORECAST_ENABLED
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.CALENDAR, Platform.SENSOR]
 
@@ -49,14 +49,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry):
     """Handle options update."""
-    # Retrieved the API Worker for this config entry
-    try:
-        serial_reader = hass.data[DOMAIN][entry.entry_id]
-    except KeyError:
-        _LOGGER.error(
-            "Can not update options for %s: failed to get the API Worker object",
-            entry.title,
-        )
-        return
-    # Update its options
-    serial_reader.update_options(entry.options.get(OPTION_ADJUSTED_DAYS))
+    # Reload the integration to apply changes (including forecast option)
+    # This is the recommended approach by Home Assistant for changes affecting entities
+    await hass.config_entries.async_reload(entry.entry_id)

@@ -1,0 +1,107 @@
+# Dashboard basique pour RTE Tempo (sans mushroom-cards)
+# Fonctionne avec les cartes natives Home Assistant
+
+title: RTE Tempo
+views:
+  # ============================================
+  # ONGLET 1 - TEMPO
+  # ============================================
+  - title: Tempo
+    path: tempo
+    icon: mdi:lightning-bolt
+    cards:
+      # Couleur du jour et demain
+      - type: entities
+        title: "🎨 Couleurs Tempo"
+        entities:
+          - entity: sensor.rte_tempo_couleur_actuelle
+            name: "Aujourd'hui"
+            icon: mdi:calendar-today
+          - entity: sensor.rte_tempo_prochaine_couleur
+            name: "Demain"
+            icon: mdi:calendar-arrow-right
+
+      # Heures Pleines / Creuses
+      - type: entities
+        title: "⏰ Tarification"
+        entities:
+          - entity: binary_sensor.rte_tempo_heures_creuses
+            name: "Heures Creuses"
+            icon: mdi:clock-outline
+
+      # Compteurs de jours restants
+      - type: glance
+        title: "📊 Jours restants dans le cycle"
+        entities:
+          - entity: sensor.rte_tempo_cycle_jours_restants_rouge
+            name: "Rouge"
+            icon: mdi:circle
+          - entity: sensor.rte_tempo_cycle_jours_restants_blanc
+            name: "Blanc"
+            icon: mdi:circle-outline
+          - entity: sensor.rte_tempo_cycle_jours_restants_bleu
+            name: "Bleu"
+            icon: mdi:circle
+
+      # Prévisions J+2 à J+7 (nécessite Open DPE activé)
+      - type: markdown
+        title: "📅 Prévisions (Open DPE)"
+        content: |
+          | Jour | Couleur | Probabilité |
+          |------|---------|-------------|
+          {% set day_names = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'] %}
+          {% for i in range(2, 8) %}
+          {% set sensor = 'sensor.rte_tempo_forecast_opendpe_j' ~ i %}
+          {% set couleur = states(sensor) %}
+          {% set proba = state_attr(sensor, 'probability') %}
+          {% set indicator = state_attr(sensor, 'indicator') %}
+          {% set date = now() + timedelta(days=i) %}
+          {% set jour = day_names[date.weekday()] %}
+          {% set emoji = '🔴' if couleur == 'Rouge' else ('⚪' if couleur == 'Blanc' else '🔵') %}
+          {% set info = '🗓️ Dimanche' if indicator == 'D' else ('🎉 Férié' if indicator == 'F' else ((proba * 100) | round ~ '%' if proba else '-')) %}
+          | {{ jour }} | {{ emoji }} {{ couleur }} | {{ info }} |
+          {% endfor %}
+
+  # ============================================
+  # ONGLET 2 - PRÉCISION DES PRÉVISIONS
+  # ============================================
+  - title: Précision
+    path: precision
+    icon: mdi:chart-line
+    cards:
+      # Précision globale
+      - type: glance
+        title: "📈 Précision par horizon"
+        entities:
+          - entity: sensor.rte_tempo_forecast_accuracy
+            name: "30 jours (J-2)"
+            icon: mdi:percent
+
+      # Tableau PASSÉ - Historique avec comparaison
+      - type: markdown
+        title: "📋 Historique (Passé)"
+        content: |
+          {% set matrix = state_attr('sensor.rte_tempo_forecast_accuracy', 'past_matrix') %}
+          {% macro color_emoji(c) %}{% if c == 'rouge' %}🔴{% elif c == 'blanc' %}⚪{% elif c == 'bleu' %}🔵{% else %}--{% endif %}{% endmacro %}
+          {% macro cell(jdata) %}{% if jdata and jdata.color %}{{ color_emoji(jdata.color) }}{% if jdata.result == '✓' %}✓{% elif jdata.result == '✗' %}✗{% endif %}{% else %}--{% endif %}{% endmacro %}
+          | Date  |  J-7  |  J-6  |  J-5  |  J-4  |  J-3  |  J-2  | Réel  |
+          |:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|
+          {% if matrix %}{% for row in matrix[:15] %}| {{ row.date[5:] }} | {{ cell(row.j7) }} | {{ cell(row.j6) }} | {{ cell(row.j5) }} | {{ cell(row.j4) }} | {{ cell(row.j3) }} | {{ cell(row.j2) }} | {{ color_emoji(row.actual) }} |
+          {% endfor %}{% endif %}
+
+      # Tableau FUTUR - Prévisions actuelles
+      - type: markdown
+        title: "🔮 Prévisions Futures"
+        content: |
+          {% set matrix = state_attr('sensor.rte_tempo_forecast_accuracy', 'future_matrix') %}
+          {% macro color_emoji(c) %}{% if c == 'rouge' %}🔴{% elif c == 'blanc' %}⚪{% elif c == 'bleu' %}🔵{% else %}--{% endif %}{% endmacro %}
+          {% macro cell(jdata) %}{% if jdata and jdata.color %}{{ color_emoji(jdata.color) }}{% else %}--{% endif %}{% endmacro %}
+          | Date  |  J-7  |  J-6  |  J-5  |  J-4  |  J-3  |  J-2  |
+          |:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|
+          {% if matrix %}{% for row in matrix %}| {{ row.date[5:] }} | {{ cell(row.j7) }} | {{ cell(row.j6) }} | {{ cell(row.j5) }} | {{ cell(row.j4) }} | {{ cell(row.j3) }} | {{ cell(row.j2) }} |
+          {% endfor %}{% endif %}
+
+      # Légende
+      - type: markdown
+        content: |
+          **Légende:** 🔴 Rouge · ⚪ Blanc · 🔵 Bleu · -- N/A | ✓ OK · ✗ Erreur

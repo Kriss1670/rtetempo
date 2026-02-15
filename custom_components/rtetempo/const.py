@@ -9,6 +9,7 @@ DOMAIN = "rtetempo"
 CONFIG_CLIENT_ID = "client_id"
 CONFIG_CLIEND_SECRET = "client_secret"
 OPTION_ADJUSTED_DAYS = "adjusted_days"
+OPTION_FORECAST_ENABLED = "forecast_enabled"
 
 
 # Service Device

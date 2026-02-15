@@ -47,6 +47,16 @@ Redémarrez votre Home Assistant.
 
 Une fois l'intégration installée, rendez-vous dans la page des intégrations d'home assistant et recherchez `RTE Tempo`. L'assistant d'installation vous demandera l'`ID Client` et l'`ID Secret` de votre application précédemment créée.
 
+### Options
+
+Pour accéder aux options de l'intégration :
+1. Allez dans **Paramètres** → **Appareils et services** → **Intégrations**
+2. Trouvez **RTE Tempo** et cliquez sur l'icône **engrenage** (⚙️)
+
+Options disponibles :
+* **Ajuster les évènements du calendrier** : Utilise l'heure réelle du changement (6h du matin) au lieu de journées entières
+* **Activer les prévisions Open DPE** : Active les capteurs de prévision J+2 à J+7 basés sur les données [Open DPE](https://open-dpe.fr/) (désactivé par défaut)
+
 ## Exemples de cartes (lovelace)
 
 * Couleur du jour et du lendemain ([rendu 1](https://github.com/hekmon/rtetempo/raw/v1.3.2/res/lovelace_colors_1.png) [rendu 2](https://github.com/hekmon/rtetempo/raw/v1.3.2/res/lovelace_colors_2.png), [code](https://github.com/hekmon/rtetempo/blob/v1.3.2/res/tempo.yaml))

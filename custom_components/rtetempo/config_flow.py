@@ -13,7 +13,7 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
 from .api_worker import BadRequest, ServerError, UnexpectedError, application_tester
-from .const import CONFIG_CLIEND_SECRET, CONFIG_CLIENT_ID, DOMAIN, OPTION_ADJUSTED_DAYS
+from .const import CONFIG_CLIEND_SECRET, CONFIG_CLIENT_ID, DOMAIN, OPTION_ADJUSTED_DAYS, OPTION_FORECAST_ENABLED
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,6 +22,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONFIG_CLIENT_ID): str,
         vol.Required(CONFIG_CLIEND_SECRET): str,
+        vol.Optional(OPTION_FORECAST_ENABLED, default=False): bool,
     }
 )
 
@@ -73,7 +74,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = "http_unexpected_error"
         else:
             return self.async_create_entry(
-                title=user_input[CONFIG_CLIENT_ID], data=user_input
+                title=user_input[CONFIG_CLIENT_ID],
+                data={
+                    CONFIG_CLIENT_ID: user_input[CONFIG_CLIENT_ID],
+                    CONFIG_CLIEND_SECRET: user_input[CONFIG_CLIEND_SECRET],
+                },
+                options={
+                    OPTION_FORECAST_ENABLED: user_input.get(OPTION_FORECAST_ENABLED, False),
+                },
             )
         # Show errors
         return self.async_show_form(
@@ -105,8 +113,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 {
                     vol.Required(
                         OPTION_ADJUSTED_DAYS,
-                        default=self.config_entry.options.get(OPTION_ADJUSTED_DAYS),
-                    ): bool
+                        default=self.config_entry.options.get(OPTION_ADJUSTED_DAYS, False),
+                    ): bool,
+                    vol.Required(
+                        OPTION_FORECAST_ENABLED,
+                        default=self.config_entry.options.get(OPTION_FORECAST_ENABLED, False),
+                    ): bool,
                 }
             ),
         )
